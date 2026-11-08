@@ -48,4 +48,7 @@ app.get('/', function(req, res) {
   res.sendFile(__dirname + '/index.html')
 })
 
-app.listen(8080)
+//app.listen(8080)
+app.listen(8080, function() {
+    console.log('The server has started on port 8080.');
+});
