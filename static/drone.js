@@ -364,10 +364,10 @@ loader.load(
       var y = Math.max(-1, Math.min(1, (event.clientY - centerY) / maxY));
 
       if (axes.horizontal) {
-        controls.roll = mapJoystickAxis(x, 241, 19);
+        controls.roll = mapJoystickAxis(x, 19, 241);
         controls.pitch = mapJoystickAxis(y, 17, 243);
       } else {
-        controls.yaw = mapJoystickAxis(x, 244, 19);
+        controls.yaw = mapJoystickAxis(x, 19, 244);
         controls.throttle = mapJoystickAxis(y, 20, 244);
       }
 
@@ -447,7 +447,9 @@ loader.load(
         return interpolatedData;
       }
 
-      // Fetch the controls and interpolate them
+      // 급격한 모터 변화 방지로 부드러운 비행을 위해 컨트롤 데이터를 가져와서 보간(interpolate)한다.
+      // 제어 루프가 돌 때마다 새로운 명령이 와있지 않기 때문에, 마지막으로 받은 두 명령 사이를 
+      // 보간(선형 보간 등)하여 중간 단계의 가짜 명령을 채워 넣어 제어가 끊기지 않도록 한다.
       fetch('/controls.json')
           .then(response => {
             if (!response.ok) {
@@ -665,5 +667,4 @@ var animate = function() {
 };
 
 animate();
-
 
