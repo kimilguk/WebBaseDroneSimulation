@@ -23,9 +23,26 @@ To run this project locally, follow these steps:
 
 1. Clone the repository to your local machine.
 2. Ensure you have Node.js installed.
-3. Install the dependencies: `npm install node-hid ws express express-ws`
+3. Install the dependencies: `npm install`
 4. Start the server: `node server.js`
 5. Open your web browser and navigate to `http://localhost:8080/`.
+
+## WebSocket Controls
+
+Connect a control client to `ws://localhost:8080/` and send JSON text messages
+with numeric `roll`, `pitch`, `yaw`, `throttle`, `leftSwitch`, and `gear`
+properties. The server relays each valid message to the browser simulation.
+Control values must be between `-128` and `255`, matching the range used by the
+previous HID-based input. For example:
+
+```json
+{"roll":0,"pitch":0,"yaw":0,"throttle":0,"leftSwitch":0,"gear":0}
+```
+
+The on-screen horizontal and vertical joysticks can also be clicked and dragged
+with the mouse to control the drone. The horizontal joystick controls roll and
+pitch; the vertical joystick controls yaw and throttle. Releasing the mouse
+returns the controls to their neutral positions.
 
 ## Code Overview
 

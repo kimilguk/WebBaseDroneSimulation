@@ -1,4 +1,3 @@
-var HID = require('node-hid')
 var WebSocket = require('ws')
 var express = require('express')
 var app = express()
@@ -6,42 +5,47 @@ var expressWs = require('express-ws')(app)
 
 app.use(express.static('static'))
 
-app.ws('/', function(ws, req) {
-  var devices = HID.devices()
-  devices.forEach(function(device) {
-    if (device.vendorId === 1539  && device.productId === 6675) {
-      var hidDevice = new HID.HID(device.path)
-
-      hidDevice.on('data', function(data) {
-        var roll = data.readInt8(0)
-        var pitch = data.readInt8(1)
-        var throttle = data.readInt8(2)
-        var leftSwitch = data.readInt8(3)
-        var gear = data.readInt8(4)
-        var yaw = data.readInt8(5)
-        console.log(roll, pitch, yaw, throttle, leftSwitch, gear)
-        // console.log(data)
-
-        ws.send(JSON.stringify({
-          roll: roll,
-          pitch: pitch,
-          yaw: yaw,
-          throttle: throttle,
-          leftSwitch: leftSwitch,
-          gear: gear
-        }))
-      })
-
-      hidDevice.on('error', function(error) {
-        console.log(error)
-      })
+app.ws('/', function(client) {
+  client.on('message', function(message, isBinary) {
+    if (isBinary) {
+      client.close(1003, 'Send control data as JSON text')
+      return
     }
+
+    var controls
+    try {
+      controls = JSON.parse(message.toString())
+    } catch (error) {
+      console.error('Invalid WebSocket control message:', error.message)
+      client.close(1007, 'Invalid JSON')
+      return
+    }
+
+    var controlFields = ['roll', 'pitch', 'yaw', 'throttle', 'leftSwitch', 'gear']
+    var isValidControls = controls && typeof controls === 'object' &&
+      !Array.isArray(controls) &&
+      controlFields.every(function(field) {
+        return typeof controls[field] === 'number' &&
+          Number.isFinite(controls[field]) &&
+          controls[field] >= -128 && controls[field] <= 255
+      })
+
+    if (!isValidControls) {
+      console.error('Invalid WebSocket control message: expected numeric control fields')
+      client.close(1008, 'Expected numeric control fields')
+      return
+    }
+
+    expressWs.getWss('/').clients.forEach(function(peer) {
+      if (peer !== client && peer.readyState === WebSocket.OPEN) {
+        peer.send(JSON.stringify(controls))
+      }
+    })
   })
 })
 
-// Yeni GET yönlendirmesi
-app.get('/', function(req, res){
-  res.sendFile(__dirname + '/index.html');
-});
+app.get('/', function(req, res) {
+  res.sendFile(__dirname + '/index.html')
+})
 
 app.listen(8080)

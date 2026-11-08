@@ -1,5 +1,5 @@
 
-// npm install node-hid ws express express-ws
+// npm install ws express express-ws
 // node server.js
 // http://localhost:8080/
 import * as THREE from 'https://threejsfundamentals.org/threejs/resources/threejs/r127/build/three.module.js';
@@ -200,9 +200,7 @@ loader.load(
 
   var joystickVertical = document.querySelector('#joystick-vertical');
   var joystickHorizontal = document.querySelector('#joystick-horizontal');
-  ws.onmessage =
-      function(event) {
-    var data = JSON.parse(event.data);
+  function applyControls(data) {
     // abs
 
 
@@ -333,6 +331,97 @@ loader.load(
       bottomView = false;
     }
   }
+
+  ws.onmessage = function(event) {
+    applyControls(JSON.parse(event.data));
+  };
+
+  function mapJoystickAxis(value, negativeValue, positiveValue) {
+    return Math.round(value < 0
+      ? 134 + -value * (negativeValue - 134)
+      : 134 + value * (positiveValue - 134));
+  }
+
+  function bindJoystick(container, stick, axes) {
+    var activePointerId = null;
+    var updateInterval = null;
+    var controls = {
+      roll: 134,
+      pitch: 134,
+      yaw: 134,
+      throttle: 134,
+      leftSwitch: 0,
+      gear: 0
+    };
+
+    function updateControls(event) {
+      var rect = container.getBoundingClientRect();
+      var centerX = rect.left + container.clientLeft + container.clientWidth / 2;
+      var centerY = rect.top + container.clientTop + container.clientHeight / 2;
+      var maxX = (container.clientWidth - stick.offsetWidth) / 2;
+      var maxY = (container.clientHeight - stick.offsetHeight) / 2;
+      var x = Math.max(-1, Math.min(1, (event.clientX - centerX) / maxX));
+      var y = Math.max(-1, Math.min(1, (event.clientY - centerY) / maxY));
+
+      if (axes.horizontal) {
+        controls.roll = mapJoystickAxis(x, 241, 19);
+        controls.pitch = mapJoystickAxis(y, 17, 243);
+      } else {
+        controls.yaw = mapJoystickAxis(x, 244, 19);
+        controls.throttle = mapJoystickAxis(y, 20, 244);
+      }
+
+      applyControls(controls);
+    }
+
+    container.addEventListener('pointerdown', function(event) {
+      if (activePointerId !== null) {
+        return;
+      }
+
+      activePointerId = event.pointerId;
+      container.setPointerCapture(activePointerId);
+      updateControls(event);
+      updateInterval = window.setInterval(function() {
+        applyControls(controls);
+      }, 1000 / 60);
+    });
+
+    container.addEventListener('pointermove', function(event) {
+      if (event.pointerId === activePointerId) {
+        updateControls(event);
+      }
+    });
+
+    function releasePointer(event) {
+      if (event.pointerId !== activePointerId) {
+        return;
+      }
+
+      window.clearInterval(updateInterval);
+      updateInterval = null;
+      activePointerId = null;
+      controls.roll = 134;
+      controls.pitch = 134;
+      controls.yaw = 134;
+      controls.throttle = 134;
+      applyControls(controls);
+    }
+
+    container.addEventListener('pointerup', releasePointer);
+    container.addEventListener('pointercancel', releasePointer);
+  }
+
+  bindJoystick(
+    document.querySelector('#joystick-container-horizontal'),
+    joystickHorizontal,
+    { horizontal: true }
+  );
+  bindJoystick(
+    document.querySelector('#joystick-container-vertical'),
+    joystickVertical,
+    { horizontal: false }
+  );
 
       // Function to interpolate control data
       function interpolateData(data, steps) {
@@ -576,7 +665,5 @@ var animate = function() {
 };
 
 animate();
-
-
 
 

@@ -53,6 +53,13 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+  }
+
+  .joystick-container:active {
+    cursor: grabbing;
   }
 
   .joystick {
@@ -61,7 +68,7 @@
     height: 50px;
     background: #A40808;
     border-radius: 25px;
-    transition: all 0.2s ease;
+    pointer-events: none;
   }
 
   /* Crosshair styles */
