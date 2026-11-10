@@ -8,7 +8,8 @@ import { DRACOLoader } from 'https://threejsfundamentals.org/threejs/resources/t
 import {OrbitControls} from 'https://threejsfundamentals.org/threejs/resources/threejs/r127/examples/jsm/controls/OrbitControls.js';
 import { RGBELoader } from 'https://threejsfundamentals.org/threejs/resources/threejs/r127/examples/jsm/loaders/RGBELoader.js';
 import { Sky } from 'https://threejsfundamentals.org/threejs/resources/threejs/r127/examples/jsm/objects/Sky.js';
-var ws = new WebSocket('ws://localhost:8080');
+var wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+var ws = new WebSocket(wsProtocol + '//' + window.location.host + '/');
 
 var scene = new THREE.Scene();
 // Setup Sky
@@ -667,4 +668,3 @@ var animate = function() {
 };
 
 animate();
-
