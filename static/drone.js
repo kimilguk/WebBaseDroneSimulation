@@ -203,8 +203,11 @@ loader.load(
   var joystickVertical = document.querySelector('#joystick-vertical');
   var joystickHorizontal = document.querySelector('#joystick-horizontal');
   function applyControls(data) {
-    // abs
-
+    // 앱에서 전송한 V 키 신호 수신 시 resetDrone() 실행
+    if (data.V === true) {
+      resetDrone();
+      return;
+    }
 
     if (data.pitch < 0) {
       data.pitch += 256;
