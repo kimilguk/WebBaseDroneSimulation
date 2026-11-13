@@ -61,6 +61,31 @@
     opacity: 0.6;
   }
 
+  .camera-button {
+    position: fixed;
+    right: 15px;
+    padding: 10px 15px;
+    color: #FFF;
+    background: #1D1D24;
+    border: 2px solid #A40808;
+    border-radius: 8px;
+    font-size: 1em;
+    cursor: pointer;
+    z-index: 1;
+  }
+
+  .camera-button[aria-pressed="true"] {
+    background: #A40808;
+  }
+
+  #drone-camera-button {
+    top: 125px;
+  }
+
+  #bottom-camera-button {
+    top: 180px;
+  }
+
   #control-panel {
     position: fixed;
     bottom: 20px;
@@ -136,6 +161,8 @@
 
   <button id="reset-button" type="button" disabled>출발 지점으로 재시작</button>
   <button id="bomb-button" type="button" disabled>폭탄 투하</button>
+  <button id="drone-camera-button" class="camera-button" type="button" aria-pressed="false">드론 카메라 (C)</button>
+  <button id="bottom-camera-button" class="camera-button" type="button" aria-pressed="false">하부 카메라 (M)</button>
 
   <div id="control-panel">
     <div id="joystick-container-vertical" class="panel joystick-container">

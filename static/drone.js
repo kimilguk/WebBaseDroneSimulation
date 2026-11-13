@@ -332,6 +332,7 @@ loader.load(
       droneView = false;
       bottomView = false;
     }
+    updateCameraButtons();
   }
 
   ws.onmessage = function(event) {
@@ -497,13 +498,17 @@ loader.load(
 var cameraoffset = new THREE.Vector3(10, 10, -10);
 var cameraLerpFactor = 0.005; // control the speed of interpolation (0.05 is a good starting value)
 
-document.querySelector('#reset-button').addEventListener('click', function() {
+function resetDrone() {
   if (!drone) {
     return;
   }
 
   drone.position.set(0, 0, 0);
   drone.quaternion.identity();
+  droneView = false;
+  bottomView = false;
+  fix_camera = false;
+  updateCameraButtons();
   last_yaw = 0;
   pitch = 0;
   desiredAltitude = 0;
@@ -513,11 +518,15 @@ document.querySelector('#reset-button').addEventListener('click', function() {
   drone_at_ground_last_x = 0;
   drone_at_ground_last_z = 0;
   lastPosition.set(0, 0, 0);
+  bombDropped = false;
+  bombAnimation = false;
   camera.position.copy(cameraoffset);
   camera.lookAt(drone.position);
   resetHorizontalJoystick();
   resetVerticalJoystick();
-});
+}
+
+document.querySelector('#reset-button').addEventListener('click', resetDrone);
 
 
 // .joystick
@@ -535,28 +544,41 @@ var droneView = false;  // By default, the view is set to the main camera
 var bottomView = false;  // View from the bottom of the drone
 var fix_camera = false;  // View from the bottom of the drone
 
+function updateCameraButtons() {
+  document.querySelector('#drone-camera-button')
+      .setAttribute('aria-pressed', String(droneView));
+  document.querySelector('#bottom-camera-button')
+      .setAttribute('aria-pressed', String(bottomView));
+}
+
+function toggleDroneView() {
+  droneView = !droneView;
+  bottomView = false;
+  updateCameraButtons();
+}
+
+function toggleBottomView() {
+  bottomView = !bottomView;
+  droneView = false;
+  updateCameraButtons();
+}
+
+document.querySelector('#drone-camera-button')
+    .addEventListener('click', toggleDroneView);
+document.querySelector('#bottom-camera-button')
+    .addEventListener('click', toggleBottomView);
+
 window.addEventListener('keydown', function(event) {
-  // If key pressed is 'C' or 'c'
   if (event.key === 'C' || event.key === 'c') {
-    droneView = !droneView;  // Toggle the drone view
-    bottomView = false;  // If drone view is active, bottom view must be deactivated
-  }
-  // If key pressed is 'M' or 'm'
-  else if (event.key === 'M' || event.key === 'm') {
-    bottomView = !bottomView;  // Toggle the bottom view
-    droneView = false;  // If bottom view is active, drone view must be deactivated
+    toggleDroneView();
+  } else if (event.key === 'M' || event.key === 'm') {
+    toggleBottomView();
   }
 });
 
-var droneCameracontrol = { pitch: 0, yaw: 0 };  // Control object to store pitch and yaw values
-
 window.addEventListener('keydown', function(event) {
   if (event.key === 'V' || event.key === 'v') {
-    // If drone view is active, update the droneCamera's rotation based on the control values
-    if (droneView) {
-      droneCamera.rotation.x += droneCameracontrol.pitch;  // Rotate around the x-axis
-      droneCamera.rotation.y += droneCameracontrol.yaw;  // Rotate around the y-axis
-    }
+    resetDrone();
   } 
 });
 
