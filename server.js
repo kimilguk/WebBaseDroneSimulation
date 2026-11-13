@@ -49,6 +49,7 @@ app.get('/', function(req, res) {
 })
 
 //app.listen(8080)
-app.listen(8080, function() {
-    console.log('The server has started on port 8080.');
+const port = process.env.PORT || 8080; // 클라우드 포트  사용가능
+app.listen(port, function() {
+  console.log(`The server has started on port ${port}.`);
 });

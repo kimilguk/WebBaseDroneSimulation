@@ -23,6 +23,44 @@
     border: 2px dashed #A40808;
   }
 
+  #reset-button {
+    position: fixed;
+    top: 15px;
+    right: 15px;
+    padding: 10px 15px;
+    color: #FFF;
+    background: #A40808;
+    border: 2px solid #A40808;
+    border-radius: 8px;
+    font-size: 1em;
+    cursor: pointer;
+    z-index: 1;
+  }
+
+  #reset-button:disabled {
+    cursor: wait;
+    opacity: 0.6;
+  }
+
+  #bomb-button {
+    position: fixed;
+    top: 70px;
+    right: 15px;
+    padding: 10px 15px;
+    color: #FFF;
+    background: #A40808;
+    border: 2px solid #A40808;
+    border-radius: 8px;
+    font-size: 1em;
+    cursor: pointer;
+    z-index: 1;
+  }
+
+  #bomb-button:disabled {
+    cursor: wait;
+    opacity: 0.6;
+  }
+
   #control-panel {
     position: fixed;
     bottom: 20px;
@@ -95,6 +133,9 @@
     <p id="speed">Speed: 0</p>
     <p id="position">Position: (0, 0, 0)</p>
   </div>
+
+  <button id="reset-button" type="button" disabled>출발 지점으로 재시작</button>
+  <button id="bomb-button" type="button" disabled>폭탄 투하</button>
 
   <div id="control-panel">
     <div id="joystick-container-vertical" class="panel joystick-container">

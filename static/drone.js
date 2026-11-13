@@ -74,6 +74,7 @@ loader.load(
       });
 
       scene.add(drone);
+      document.querySelector('#reset-button').disabled = false;
       mixer = new THREE.AnimationMixer(drone);
       gltf.animations.forEach((clip) => {
         mixer.clipAction(clip).play();
@@ -411,14 +412,22 @@ loader.load(
 
     container.addEventListener('pointerup', releasePointer);
     container.addEventListener('pointercancel', releasePointer);
+
+    return function() {
+      controls.roll = 134;
+      controls.pitch = 134;
+      controls.yaw = 134;
+      controls.throttle = 134;
+      applyControls(controls);
+    };
   }
 
-  bindJoystick(
+  var resetHorizontalJoystick = bindJoystick(
     document.querySelector('#joystick-container-horizontal'),
     joystickHorizontal,
     { horizontal: true }
   );
-  bindJoystick(
+  var resetVerticalJoystick = bindJoystick(
     document.querySelector('#joystick-container-vertical'),
     joystickVertical,
     { horizontal: false }
@@ -488,6 +497,28 @@ loader.load(
 var cameraoffset = new THREE.Vector3(10, 10, -10);
 var cameraLerpFactor = 0.005; // control the speed of interpolation (0.05 is a good starting value)
 
+document.querySelector('#reset-button').addEventListener('click', function() {
+  if (!drone) {
+    return;
+  }
+
+  drone.position.set(0, 0, 0);
+  drone.quaternion.identity();
+  last_yaw = 0;
+  pitch = 0;
+  desiredAltitude = 0;
+  lastPitchSpeed = 0;
+  lastRollSpeed = 0;
+  lastThrottleSpeed = 0;
+  drone_at_ground_last_x = 0;
+  drone_at_ground_last_z = 0;
+  lastPosition.set(0, 0, 0);
+  camera.position.copy(cameraoffset);
+  camera.lookAt(drone.position);
+  resetHorizontalJoystick();
+  resetVerticalJoystick();
+});
+
 
 // .joystick
 
@@ -547,6 +578,7 @@ loader.load(
               // Create an AnimationAction for each animation and play it
               mixerbomb.clipAction(clip).play();
           });
+          document.querySelector('#bomb-button').disabled = false;
 
     },
     undefined,
@@ -556,11 +588,20 @@ loader.load(
 
 
 
+function dropBomb() {
+  if (!bomb) {
+    return;
+  }
+
+  bombDropped = true;
+  bombAnimation = true;
+}
+
+document.querySelector('#bomb-button').addEventListener('click', dropBomb);
+
 window.addEventListener('keydown', function(event) {
-  // If key pressed is 'B' or 'b'
   if (event.key === 'B' || event.key === 'b') {
-    bombDropped = true;
-    bombAnimation = true;
+    dropBomb();
   }
 });
 
