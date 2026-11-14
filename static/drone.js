@@ -1,7 +1,7 @@
 
-// npm install ws express express-ws
-// node server.js
-// http://localhost:8080/
+// 설치: npm install ws express express-ws
+// 서버 실행: node server.js
+// 접속 주소: http://localhost:8080/
 import * as THREE from 'https://threejsfundamentals.org/threejs/resources/threejs/r127/build/three.module.js';
 import {GLTFLoader} from 'https://threejsfundamentals.org/threejs/resources/threejs/r127/examples/jsm/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'https://threejsfundamentals.org/threejs/resources/threejs/r127/examples/jsm/loaders/DRACOLoader.js';
@@ -12,7 +12,7 @@ var wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 var ws = new WebSocket(wsProtocol + '//' + window.location.host + '/');
 
 var scene = new THREE.Scene();
-// Setup Sky
+// 하늘 설정
 const sky = new Sky();
 sky.scale.setScalar(10000);
 scene.add(sky);
@@ -24,7 +24,7 @@ skyUniforms['rayleigh'].value = 2;
 skyUniforms['mieCoefficient'].value = 0.005;
 skyUniforms['mieDirectionalG'].value = 0.5;
 
-// Set up the sun position
+// 태양 위치 설정
 const sun = new THREE.Vector3();
 
 function updateSunPosition() {
@@ -47,7 +47,7 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 var mixer;
 
-// gltf loader with draco decoder
+// Draco 디코더를 사용하는 GLTF 로더
 const rgbeLoader = new RGBELoader();
 rgbeLoader.load('/models/cloud_layers_2k.hdr', function (texture) {
   texture.mapping = THREE.EquirectangularReflectionMapping;
@@ -99,19 +99,23 @@ var scan_three;
 var last_yaw = 0;
 var camera_yaw = 0;
 var camera_pitch = 0;
-var euler = new THREE.Euler(0, 0, 0, 'YXZ');  // 'YXZ' dönüş sırasını belirler
+var droneCameraPitchOffset = 0;
+var droneCameraYawOffset = 0;
+var cameraMoveMode = false;
+var lastCameraMoveSignal = false;
+var euler = new THREE.Euler(0, 0, 0, 'YXZ');  // 'YXZ' 회전 순서를 지정합니다.
 var quaternion = new THREE.Quaternion();
 var pitch = 0;
 var desiredAltitude = 0;
 
-// Geçmiş hız değerlerini saklamak için değişkenler
+// 이전 속도 값을 저장하는 변수
 var lastPitchSpeed = 0;
 var lastRollSpeed = 0;
 var lastThrottleSpeed = 0;
 
 var drone_at_ground_last_x = 0;
 var drone_at_ground_last_z = 0;
-// add texture
+// 텍스처 추가
 var texture = new THREE.TextureLoader().load('/models/ground.jpg');
 texture.wrapS = THREE.RepeatWrapping;
 texture.wrapT = THREE.RepeatWrapping;
@@ -203,8 +207,12 @@ loader.load(
   var joystickVertical = document.querySelector('#joystick-vertical');
   var joystickHorizontal = document.querySelector('#joystick-horizontal');
   function applyControls(data) {
-    // 앱에서 전송한 V 키 신호 수신 시 resetDrone() 실행
-    if (data.V === true) {
+    var cameraMoveToggleRequested =
+        data.V === true && !lastCameraMoveSignal;
+    lastCameraMoveSignal = data.V === true;
+
+    // 앱에서 전송한 E 키 신호 수신 시 resetDrone() 실행
+    if (data.E === true) {
       resetDrone();
       return;
     }
@@ -222,74 +230,119 @@ loader.load(
       data.throttle += 256;
     }
 
-    // Ölçeklendirme işlemleri
+    // 값 스케일링
     var roll = scale(data.roll, 241, 134, 19, Math.PI / 4, 0, -Math.PI / 4);
     pitch = scale(data.pitch, 17, 134, 243, Math.PI / 4, 0, -Math.PI / 4);
     var yaw = scale(data.yaw, 19, 134, 244, Math.PI, 0, -Math.PI);
     desiredAltitude = scale(data.throttle, 20, 134, 244, 1, 0, -1);
 
-    // Yaw değerini last_yaw'a ekleyerek güncelle
-    last_yaw += yaw * 0.01;
-
-    // Yatay hareket hesaplama
-    if (last_yaw > Math.PI) {
-      last_yaw -= 2 * Math.PI;
-    }
-    if (last_yaw < -Math.PI) {
-      last_yaw += 2 * Math.PI;
+    if (cameraMoveToggleRequested) {
+      toggleCameraMoveMode();
     }
 
-
-    euler.set(pitch, last_yaw, roll);
-    quaternion.setFromEuler(euler);
-    drone.quaternion.copy(quaternion);
-
-    var forward = new THREE.Vector3(0, 0, 1);
-    var right = new THREE.Vector3(-1, 0, 0);
-    var up = new THREE.Vector3(0, 1, 0);
-
-    forward.applyQuaternion(quaternion);
-    right.applyQuaternion(quaternion);
-    up.applyQuaternion(quaternion);
-
-
-    var pitchSpeed = lastPitchSpeed * 0.99 + pitch * 0.01;
-    var rollSpeed = lastRollSpeed * 0.99 + roll * 0.01;
-    var throttleSpeed = lastThrottleSpeed * 0.8 + desiredAltitude * 0.2;
-
-    // Güncellenmiş hız değerleriyle drone pozisyonunu güncelle
-    drone.position.add(forward.multiplyScalar(pitchSpeed));
-    drone.position.add(right.multiplyScalar(rollSpeed));
-    drone.position.add(up.multiplyScalar(throttleSpeed));
-
-    lastPitchSpeed = pitchSpeed;
-    lastRollSpeed = rollSpeed;
-    lastThrottleSpeed = throttleSpeed;
-
-    if (drone.position.y < 0) {
-      drone.position.y = 0;
-      drone.position.x = drone_at_ground_last_x;
-      drone.position.z = drone_at_ground_last_z;
-
-      drone.rotation.x = 0;
-      drone.rotation.z = 0;
-
-      drone.traverse(function(child) {
-        if (child.isMesh) {
-          child.material.color.setHex(0xff0000, 1);
-        }
-      });
+    if (cameraMoveMode) {
+      droneCameraPitchOffset = Math.max(
+          -Math.PI / 2,
+          Math.min(Math.PI / 2, droneCameraPitchOffset + pitch * 0.01));
+      droneCameraYawOffset += yaw * 0.01;
+      if (droneCameraYawOffset > Math.PI) {
+        droneCameraYawOffset -= 2 * Math.PI;
+      }
+      if (droneCameraYawOffset < -Math.PI) {
+        droneCameraYawOffset += 2 * Math.PI;
+      }
     } else {
-      drone_at_ground_last_x = drone.position.x;
-      drone_at_ground_last_z = drone.position.z;
+      // yaw 값을 last_yaw에 더해 갱신
+      last_yaw += yaw * 0.01;
 
-      drone.traverse(function(child) {
-        if (child.isMesh) {
-          child.material.color.setHex(0xffffff, 1);
-        }
-      });
+      // 수평 이동 계산
+      if (last_yaw > Math.PI) {
+        last_yaw -= 2 * Math.PI;
+      }
+      if (last_yaw < -Math.PI) {
+        last_yaw += 2 * Math.PI;
+      }
+
+
+      euler.set(pitch, last_yaw, roll);
+      quaternion.setFromEuler(euler);
+      drone.quaternion.copy(quaternion);
+
+      var forward = new THREE.Vector3(0, 0, 1);
+      var right = new THREE.Vector3(-1, 0, 0);
+      var up = new THREE.Vector3(0, 1, 0);
+
+      forward.applyQuaternion(quaternion);
+      right.applyQuaternion(quaternion);
+      up.applyQuaternion(quaternion);
+
+
+      var pitchSpeed = lastPitchSpeed * 0.99 + pitch * 0.01;
+      var rollSpeed = lastRollSpeed * 0.99 + roll * 0.01;
+      var throttleSpeed = lastThrottleSpeed * 0.8 + desiredAltitude * 0.2;
+
+      // 갱신된 속도 값으로 드론 위치 업데이트
+      drone.position.add(forward.multiplyScalar(pitchSpeed));
+      drone.position.add(right.multiplyScalar(rollSpeed));
+      drone.position.add(up.multiplyScalar(throttleSpeed));
+
+      lastPitchSpeed = pitchSpeed;
+      lastRollSpeed = rollSpeed;
+      lastThrottleSpeed = throttleSpeed;
+
+      if (drone.position.y < 0) {
+        drone.position.y = 0;
+        drone.position.x = drone_at_ground_last_x;
+        drone.position.z = drone_at_ground_last_z;
+
+        drone.rotation.x = 0;
+        drone.rotation.z = 0;
+
+        drone.traverse(function(child) {
+          if (child.isMesh) {
+            child.material.color.setHex(0xff0000, 1);
+          }
+        });
+      } else {
+        drone_at_ground_last_x = drone.position.x;
+        drone_at_ground_last_z = drone.position.z;
+
+        drone.traverse(function(child) {
+          if (child.isMesh) {
+            child.material.color.setHex(0xffffff, 1);
+          }
+        });
+      }
     }
 
+    if (cameraMoveMode) {
+      droneView = true;
+      bottomView = false;
+      fix_camera = false;
+    } else {
+      if (data.gear > 10 && data.gear < 20) {
+        droneView = true;
+        bottomView = false;
+        fix_camera = false;
+      } else if (data.gear > 20 && data.gear < 50) {
+        bottomView = true;
+        droneView = false;
+        fix_camera = false;
+      } else if (data.gear > 50 && data.gear < 70) {
+        droneView = false;
+        bottomView = false;
+        fix_camera = true;
+      } else if (data.gear > 70 && data.gear < 90) {
+        fix_camera = true;
+        droneView = false;
+        bottomView = false;
+      } else if (data.gear > 90 && data.gear < 110) {
+        fix_camera = false;
+        droneView = false;
+        bottomView = false;
+      }
+    }
+    updateCameraButtons();
 
     var scaledRoll = scale(roll, Math.PI / 4, 0, -Math.PI / 4, 97, 60, -2);
     var scaledPitch = scale(pitch, Math.PI / 4, 0, -Math.PI / 4, 20, 60, 101);
@@ -313,29 +366,6 @@ loader.load(
       bombDropped = false;
       bombAnimation = false;
     }
-
-    if (data.gear > 10 && data.gear < 20) {
-      droneView = true;
-      bottomView = false;
-      fix_camera = false;
-    } else if (data.gear > 20 && data.gear < 50) {
-      bottomView = true;
-      droneView = false;
-      fix_camera = false;
-    } else if (data.gear > 50 && data.gear < 70) {
-      droneView = false;
-      bottomView = false;
-      fix_camera = true;
-    } else if (data.gear > 70 && data.gear < 90) {
-      fix_camera = true;
-      droneView = false;
-      bottomView = false;
-    } else if (data.gear > 90 && data.gear < 110) {
-      fix_camera = false;
-      droneView = false;
-      bottomView = false;
-    }
-    updateCameraButtons();
   }
 
   ws.onmessage = function(event) {
@@ -437,7 +467,7 @@ loader.load(
     { horizontal: false }
   );
 
-      // Function to interpolate control data
+      // 제어 데이터 보간 함수
       function interpolateData(data, steps) {
         const interpolatedData = [];
 
@@ -461,9 +491,7 @@ loader.load(
         return interpolatedData;
       }
 
-      // 급격한 모터 변화 방지로 부드러운 비행을 위해 컨트롤 데이터를 가져와서 보간(interpolate)한다.
-      // 제어 루프가 돌 때마다 새로운 명령이 와있지 않기 때문에, 마지막으로 받은 두 명령 사이를 
-      // 보간(선형 보간 등)하여 중간 단계의 가짜 명령을 채워 넣어 제어가 끊기지 않도록 한다.
+      // Fetch the controls and interpolate them
       fetch('/controls.json')
           .then(response => {
             if (!response.ok) {
@@ -487,10 +515,9 @@ loader.load(
     var speedElement = document.getElementById('speed');
     var positionElement = document.getElementById('position');
 
-    // Calculate the speed as the distance travelled since last frame
+    // 마지막 프레임 이후 이동한 거리를 기준으로 속도 계산
     var distance = drone.position.distanceTo(lastPosition);
-    speed = distance / (1 / 60);  // Assuming animate is running at 60 FPS
-    lastPosition.copy(drone.position);
+    speed = distance / (1 / 60);  // animate 함수가 초당 60프레임으로 실행된다고 가정
 
     speedElement.innerText = 'Speed: ' + speed.toFixed(2);
     positionElement.innerText = 'Position: (' + drone.position.x.toFixed(2) +
@@ -499,7 +526,7 @@ loader.load(
   }
 
 var cameraoffset = new THREE.Vector3(10, 10, -10);
-var cameraLerpFactor = 0.005; // control the speed of interpolation (0.05 is a good starting value)
+var cameraLerpFactor = 0.005; // 보간 속도 제어 (0.05부터 시작하는 것이 좋습니다.)
 
 function resetDrone() {
   if (!drone) {
@@ -511,9 +538,12 @@ function resetDrone() {
   droneView = false;
   bottomView = false;
   fix_camera = false;
+  cameraMoveMode = false;
   updateCameraButtons();
   last_yaw = 0;
   pitch = 0;
+  droneCameraPitchOffset = 0;
+  droneCameraYawOffset = 0;
   desiredAltitude = 0;
   lastPitchSpeed = 0;
   lastRollSpeed = 0;
@@ -532,37 +562,64 @@ function resetDrone() {
 document.querySelector('#reset-button').addEventListener('click', resetDrone);
 
 
-// .joystick
+// 조이스틱
 
 var clock = new THREE.Clock();
 
 var droneCamera = new THREE.PerspectiveCamera(
   75, window.innerWidth / window.innerHeight, 0.1, 1000);
-droneCamera.position.set(0, 2, -5); // Position the droneCamera at the back of the drone
+droneCamera.position.set(0, 2, -5); // droneCamera를 드론 뒤쪽에 배치
 
 var droneCameraTwo = droneCamera.clone();
 
 
-var droneView = false;  // By default, the view is set to the main camera
-var bottomView = false;  // View from the bottom of the drone
-var fix_camera = false;  // View from the bottom of the drone
+var droneView = false;  // 기본적으로 메인 카메라 시점 사용
+var bottomView = false;  // 드론 아래쪽 시점 사용
+var fix_camera = false;  // 고정 카메라 사용 여부
 
 function updateCameraButtons() {
   document.querySelector('#drone-camera-button')
       .setAttribute('aria-pressed', String(droneView));
   document.querySelector('#bottom-camera-button')
       .setAttribute('aria-pressed', String(bottomView));
+  document.querySelector('#camera-move-button')
+      .setAttribute('aria-pressed', String(cameraMoveMode));
 }
 
 function toggleDroneView() {
+  if (cameraMoveMode) {
+    cameraMoveMode = false;
+    lastPitchSpeed = 0;
+    lastRollSpeed = 0;
+    lastThrottleSpeed = 0;
+  }
   droneView = !droneView;
   bottomView = false;
   updateCameraButtons();
 }
 
 function toggleBottomView() {
+  if (cameraMoveMode) {
+    cameraMoveMode = false;
+    lastPitchSpeed = 0;
+    lastRollSpeed = 0;
+    lastThrottleSpeed = 0;
+  }
   bottomView = !bottomView;
   droneView = false;
+  updateCameraButtons();
+}
+
+function toggleCameraMoveMode() {
+  cameraMoveMode = !cameraMoveMode;
+  if (cameraMoveMode) {
+    droneView = true;
+    bottomView = false;
+    fix_camera = false;
+    lastPitchSpeed = 0;
+    lastRollSpeed = 0;
+    lastThrottleSpeed = 0;
+  }
   updateCameraButtons();
 }
 
@@ -570,6 +627,8 @@ document.querySelector('#drone-camera-button')
     .addEventListener('click', toggleDroneView);
 document.querySelector('#bottom-camera-button')
     .addEventListener('click', toggleBottomView);
+document.querySelector('#camera-move-button')
+    .addEventListener('click', toggleCameraMoveMode);
 
 window.addEventListener('keydown', function(event) {
   if (event.key === 'C' || event.key === 'c') {
@@ -580,9 +639,15 @@ window.addEventListener('keydown', function(event) {
 });
 
 window.addEventListener('keydown', function(event) {
-  if (event.key === 'V' || event.key === 'v') {
+  if (event.key === 'E' || event.key === 'e') {
     resetDrone();
   } 
+});
+
+window.addEventListener('keydown', function(event) {
+  if (!event.repeat && (event.key === 'V' || event.key === 'v')) {
+    toggleCameraMoveMode();
+  }
 });
 
 var bomb;
@@ -592,15 +657,15 @@ loader.load(
     function(gltf) {
       bomb = gltf.scene;
       bomb.scale.set(0.1,0.1,0.1);
-      bomb.position.set(0, -0.2, 0); //initial position at the origin
+      bomb.position.set(0, -0.2, 0); // 초기 위치는 원점
       scene.add(bomb);
 
-          // Create an AnimationMixer instance and set it to the drone
+          // AnimationMixer 인스턴스를 만들고 드론에 연결
           mixerbomb = new THREE.AnimationMixer(bomb);
   
-          // Get all animations from the glTF model
+          // glTF 모델에서 모든 애니메이션 가져오기
           gltf.animations.forEach((clip) => {
-              // Create an AnimationAction for each animation and play it
+              // 각 애니메이션의 AnimationAction을 만들고 재생
               mixerbomb.clipAction(clip).play();
           });
           document.querySelector('#bomb-button').disabled = false;
@@ -631,7 +696,7 @@ window.addEventListener('keydown', function(event) {
 });
 
 
-// Inside the animate function
+// animate 함수 내부
 var animate = function() {
   requestAnimationFrame(animate);
 
@@ -646,37 +711,36 @@ var animate = function() {
   }
 
   if (droneView) {
-    // Kameranın drone ile aynı konumda olmasını sağla
+    // 카메라를 드론과 같은 위치에 배치
     droneCamera.position.copy(drone.position);
 
-    // Kameranın rotasyonunu ayarla
+    // 카메라 회전 설정
     var cameraEuler = new THREE.Euler(0, 0, 0, 'YXZ');
     var cameraQuaternion = new THREE.Quaternion();
 
-    // Kameranın yönünü, özellikle pitch ve yaw açılarını kullanarak ayarla
-    // Burada, drone'un yaw açısını ve isteğe bağlı olarak pitch açısını
-    // kullanabilirsiniz Roll genellikle gimbal kameralarda stabilize edilir ve
-    // değiştirilmez
+    // 특히 pitch와 yaw 각도를 사용해 카메라 방향 설정
+    // 드론의 yaw 각도와 필요에 따라 pitch 각도를 사용할 수 있습니다.
+    // Roll은 보통 짐벌 카메라에서 안정화하므로 변경하지 않습니다.
     camera_yaw = last_yaw + Math.PI;
     cameraEuler.set(
-        0, camera_yaw,
-        0);  // Sadece yaw açısını kullanarak kamera rotasyonu
+        droneCameraPitchOffset, camera_yaw + droneCameraYawOffset,
+        0);  // yaw 각도만 사용해 카메라 회전
     cameraQuaternion.setFromEuler(cameraEuler);
 
-    // Kameranın quaternionunu ayarla
+    // 카메라 쿼터니언 설정
     droneCamera.quaternion.copy(cameraQuaternion);
 
-    // Kamera için ek ayarlamalar
-    // Örneğin, kamerayı biraz geri ve yukarı taşıyarak drone'u görüş alanında
-    // tutabilirsiniz
+    // 카메라 추가 조정
+    // 예를 들어 카메라를 약간 뒤쪽과 위쪽으로 이동해 드론이 시야에
+    // 들어오도록 할 수 있습니다.
     droneCamera.position.add(
         new THREE.Vector3(0, -0.3, 0.8).applyQuaternion(drone.quaternion));
 
   } else if (bottomView) {
     droneCameraTwo.position.copy(drone.position);
-    droneCameraTwo.position.y -= 0.2;  // Position camera above the drone
-    droneCameraTwo.position.z -= 0.2;  // Position camera at the back of the
-    // Kameranın rotasyonunu ayarla
+    droneCameraTwo.position.y -= 0.2;  // 카메라를 드론 위쪽에 배치
+    droneCameraTwo.position.z -= 0.2;  // 카메라를 드론 뒤쪽에 배치
+    // 카메라 회전 설정
     var cameraEulerBomb = new THREE.Euler(0, 0, 0, 'YXZ');
     var cameraQuaternionBomb = new THREE.Quaternion();
 
@@ -684,10 +748,10 @@ var animate = function() {
     camera_pitch = -Math.PI / 2;
     cameraEulerBomb.set(
         camera_pitch, camera_yaw,
-        0);  // Sadece yaw açısını kullanarak kamera rotasyonu
+        0);  // yaw 각도만 사용해 카메라 회전
     cameraQuaternionBomb.setFromEuler(cameraEulerBomb);
 
-    // Kameranın quaternionunu ayarla
+    // 카메라 쿼터니언 설정
     droneCameraTwo.quaternion.copy(cameraQuaternionBomb);
   } else if (fix_camera) {
     camera.position.set(0, 5, -10);
@@ -704,7 +768,7 @@ var animate = function() {
   var targetPosition = new THREE.Vector3();
   targetPosition.copy(drone.position).add(cameraoffset);
 
-  // Interpolate camera position towards the target position
+  // 카메라 위치를 목표 위치로 보간
   if (!droneView) {
     camera.position.lerp(targetPosition, cameraLerpFactor);
   }
@@ -717,7 +781,7 @@ var animate = function() {
   }
 
   if (bombDropped) {
-    bomb.position.y -= 0.1;  // Change this value to control the speed of the bomb
+    bomb.position.y -= 0.1;  // 폭탄 낙하 속도를 조절하려면 이 값을 변경
     if (bomb.position.y <= 0) {
       bomb.position.y = 0;
     }

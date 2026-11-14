@@ -44,7 +44,7 @@
 
   #bomb-button {
     position: fixed;
-    top: 180px;
+    top: 235px;
     right: 15px;
     padding: 10px 15px;
     color: #FFF;
@@ -83,6 +83,10 @@
   }
 
   #bottom-camera-button {
+    top: 180px;
+  }
+
+  #camera-move-button {
     top: 125px;
   }
 
@@ -159,8 +163,9 @@
     <p id="position">Position: (0, 0, 0)</p>
   </div>
 
-  <button id="reset-button" type="button" disabled>출발지점으로 재시작(V)</button>  
+  <button id="reset-button" type="button" disabled>출발지점으로 재시작(E)</button>
   <button id="drone-camera-button" class="camera-button" type="button" aria-pressed="false">1인칭시점 카메라 (C)</button>
+  <button id="camera-move-button" class="camera-button" type="button" aria-pressed="false">카메라 이동 (V)</button>
   <button id="bottom-camera-button" class="camera-button" type="button" aria-pressed="false">하부 카메라 (M)</button>
   <button id="bomb-button" type="button" disabled>폭탄 투하(B)</button>
 
