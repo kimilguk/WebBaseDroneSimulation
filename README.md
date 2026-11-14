@@ -4,8 +4,9 @@
 
 ## 작업 정보
 
-- 현재 기존 조이스틱에서 마우스+드래그 기반으로 드론 움직임 제어방식을 변경 OK.
-- WebSocket 데이터로 드론 움직임 제어방식을 사용하는 안드로이드 앱은 제작예정.
+- VS-Code기반 코파일럿AI 에이전트 개발환경 사용
+- 현재 기존 조이스틱에서 마우스+드래그 기반으로 드론 움직임 제어방식을 변경 OK. (https://github.com/kimilguk/WebBaseDroneSimulation)
+- WebSocket 데이터로 드론 움직임 제어방식을 사용하는 안드로이드 앱은 제작 OK. (https://github.com/kimilguk/SocketDroneSimulation)
 
 ## 컨트롤러 정보
 
